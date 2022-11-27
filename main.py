@@ -2,67 +2,100 @@
 import datetime
 import discord
 import pymongo
-import json
 
 # Initialise bot and database
 bot = discord.Bot
 intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Bot(command_prefix="/", intents=intents)
-mongoDB = pymongo.MongoClient("mongodb+srv://eillesj:Jeilles310706-@userid.27w8qi7.mongodb.net/?retryWrites=true&w=majority")
+mongoDB = pymongo.MongoClient(
+    "mongodb+srv://eillesj:QFGfAJhKTQEcZ20W@spcverif.hgmrqcg.mongodb.net/?retryWrites=true&w=majority")
 db = mongoDB["RequestedUsers"]
 col = db["UserReqID"]
+
 
 # Notify when bot is ready
 @bot.event
 async def on_ready():
     print(f"{bot.user} has connected to Discord and is ready to use.")
 
-# Command to request verification
-@bot.slash_command(name = "verify", description = "Verify yourself to get access to the server.")
-async def verify(ctx, link: discord.Option(str, "Link", required=True)): # This is the slash command
-    if ctx.channel.id == 1044384110711406703: # If the channel is the verification channel
 
-        modChannel = bot.get_channel(1044615945370488843) # Get the mod channel
+# Command to request verification
+@bot.slash_command(name="verify", description="Verify yourself to get access to the server.")
+async def verify(ctx, link: discord.Option(str, "Link", required=True)):  # This is the slash command
+    # Check if the command is used in the correct channel
+    if ctx.channel.id == 1044384110711406703:
 
         # Add the user to the database
-        userInfo = {
-            "userID": ctx.author.id,
-            "link": link,
-            "date": datetime.datetime.utcnow(),
-        }
-        col.insert_one(userInfo)
+        dbinfo = {"_id": ctx.author.id,
+                  "link": link,
+                  "verified": False,
+                  "date": datetime.datetime.utcnow()
+                  }
+        col.insert_one(dbinfo)
 
-        await modChannel.send(f"@{ctx.author} (ID: {ctx.author.id}) has requested verification. Their profile link is {link}.") # Send the message to the mod channel
+        # Send a message to the user
+        await ctx.respond(f"Thank you for requesting verification, {ctx.author.mention}. "
+                          f"You will be notified when you have been verified.")
 
-        await ctx.respond(f"Your link has been sent to the moderators to be reviewed.") # Respond to the user
-
-
-
-        
+        # Send a message to the mod channel
+        await bot.get_channel(1044615945370488843).send(
+            f"{ctx.author.mention} has requested verification. Please verify them.")
 
     else:
-        await ctx.send(f"This command can only be run in #verification.", ephemeral=True) # If the command is not run in the verification channel, tell the user
+        await ctx.send(f"This command can only be run in #verification.",
+                       ephemeral=True)  # If the command is not run in the verification channel, tell the user
+
 
 # Command to accept a user
-@bot.slash_command(name = "accept", description = "Accept a user's verification request.")
-async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):
-    ## Placeholder to connect to MongoDB to check if the UserID is in the database
+@bot.slash_command(name="accept", description="Accept a user's verification request.")
+async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # This is the slash command
+    # Check if the command is used in the correct channel (mod channel)
     if ctx.channel.id == 1044615945370488843:
-        x = col.find_one({}, {"userID": userid})
-        if x is None:
-            await ctx.respond(f"User not found. Please check the UserID and try again.")
+
+        # Check if the user is a moderator
+        if ctx.author.guild_permissions.manage_roles:
+
+            # Check if the user is already verified
+            userid = int(userid)
+            if col.find_one({"_id": userid})["verified"] == True:
+                await ctx.respond(f"{ctx.author.mention}, this user is already verified.")
+                return
+
+            elif col.find_one({"_id": userid})["verified"] == False:
+                # Update the database
+
+                member = ctx.guild.get_member(userid)
+                print(member)
+
+                addrole = discord.utils.get(ctx.guild.roles, name="Community Member", id=1045091981283573811)
+                removerole = discord.utils.get(ctx.guild.roles, name="Awaiting Verification...", id=1045091897456214076)
+
+                # Add the verified role to the user
+                await member.add_roles(addrole)
+
+                # Remove the unverified role from the user
+                await member.remove_roles(removerole)
+
+                col.update_one({"_id": userid}, {"$set": {"verified": True}})
+
+                # Send a message to the mod channel
+                await bot.get_channel(1044615945370488843).send(f"{userid} has been verified.")
+
+                # Send the user a DM to notify them
+                await bot.get_user(userid).send(
+                    f"Your verification request for the Small Producer Community has been accepted! You can now "
+                    f"access the server.")
+            else:
+                await ctx.respond(f"{ctx.author.mention}, this user could not be found in the database.")
+                return
         else:
-            await ctx.respond(f"User found.")
-            print(x)
-            user = bot.get_user(userid)
-            verifiedRole = discord.utils.get(ctx.guild.roles, name="Community Member")
-            awaitingVerif = discord.utils.get(ctx.guild.roles, name="Awaiting Verification...")
-            await user.add_roles(verifiedRole)
-            await user.remove_roles(awaitingVerif)
-            await ctx.respond(f"User has been verified.")
+            await ctx.send(f"You do not have the required permissions to use this command. How are you even in "
+                           f"here?", ephemeral=True)
     else:
-        await ctx.respond("This command can only be run by moderators.", ephemeral=True)
+        await ctx.send(f"This command can not be run in this channel.",
+                       ephemeral=True)
+
 
 # Token
 bot.run("MTA0NDM2NzM0NTg2MDIxODkxMQ.GzrbwC.DlId6Y7QiBRPsBbpjvk4eGjZnp61ZTOIJzkc_M")
