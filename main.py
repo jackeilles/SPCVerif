@@ -65,7 +65,7 @@ async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # 
             elif col.find_one({"_id": userid})["verified"] == False:
                 # Update the database
 
-                member = ctx.guild.get_member(userid)
+                member = get(bot.get_all_members, id=userid)
                 print(member)
 
                 addrole = discord.utils.get(ctx.guild.roles, name="Community Member", id=1045091981283573811)
