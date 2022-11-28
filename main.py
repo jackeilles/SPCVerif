@@ -13,7 +13,6 @@ mongoDB = pymongo.MongoClient(
 db = mongoDB["RequestedUsers"]
 col = db["UserReqID"]
 
-
 # Notify when bot is ready
 @bot.event
 async def on_ready():
@@ -30,6 +29,7 @@ async def verify(ctx, link: discord.Option(str, "Link", required=True)):  # This
         dbinfo = {"_id": ctx.author.id,
                   "link": link,
                   "verified": False,
+                  "deny": False,
                   "date": datetime.datetime.utcnow()
                   }
         col.insert_one(dbinfo)
@@ -39,8 +39,8 @@ async def verify(ctx, link: discord.Option(str, "Link", required=True)):  # This
                           f"You will be notified when you have been verified.")
 
         # Send a message to the mod channel
-        await bot.get_channel(1044615945370488843).send(
-            f"{ctx.author.mention} has requested verification. Please verify them.")
+        await bot.get_channel(1044615945370488843).send(f"@SPC Staff | {ctx.author.mention} (ID: {ctx.author.id} has "
+                                                        f"requested verification. Please verify them.")
 
     else:
         await ctx.send(f"This command can only be run in #verification.",
@@ -65,8 +65,7 @@ async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # 
             elif col.find_one({"_id": userid})["verified"] == False:
                 # Update the database
 
-                member = get(bot.get_all_members, id=userid)
-                print(member)
+                member = ctx.message.server.get_member(userid)
 
                 addrole = discord.utils.get(ctx.guild.roles, name="Community Member", id=1045091981283573811)
                 removerole = discord.utils.get(ctx.guild.roles, name="Awaiting Verification...", id=1045091897456214076)
@@ -95,6 +94,42 @@ async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # 
     else:
         await ctx.send(f"This command can not be run in this channel.",
                        ephemeral=True)
+
+
+@bot.slash_command(name="deny", description="Deny a user's verification request.")
+async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # This is the slash command
+    # Check if the command is used in the correct channel (mod channel)
+    if ctx.channel.id == 1044615945370488843:
+
+        # Check if the user is a moderator
+        if ctx.author.guild_permissions.manage_roles:
+
+            # Check if the user is already verified
+            userid = int(userid)
+            if col.find_one({"_id": userid})["verified"] == True and col.find_one({"_id": userid})["deny"] == False:
+                await ctx.respond(f"{ctx.author.mention}, this user is already verified.")
+                return
+
+            elif col.find_one({"_id": userid})["verified"] == False and col.find_one({"_id": userid})["deny"] == False:
+
+                # Update the database
+                col.update_one({"_id": userid}, {"$set": {"verified": False}})
+
+                # Send a message to the mod channel
+                await bot.get_channel(1044615945370488843).send(f"{userid} has been denied verification.")
+
+                # Send the user a DM to notify them
+                await bot.get_user(userid).send(
+                    f"Your verification request for the Small Producer Community has been denied. "
+                    f"Please try again.")
+
+
+            else:
+                await ctx.respond(f"{ctx.author.mention}, this user could not be found in the database.")
+                return
+        else:
+            await ctx.send(f"You do not have the required permissions to use this command. How are you even in "
+                           f"here?", ephemeral=True)
 
 
 # Token
