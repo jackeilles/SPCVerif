@@ -8,8 +8,7 @@ bot = discord.Bot
 intents = discord.Intents.default()
 intents.message_content = True
 bot = discord.Bot(command_prefix="/", intents=intents)
-mongoDB = pymongo.MongoClient(
-    "mongodb+srv://eillesj:QFGfAJhKTQEcZ20W@spcverif.hgmrqcg.mongodb.net/?retryWrites=true&w=majority")
+mongoDB = pymongo.MongoClient("redacted")
 db = mongoDB["RequestedUsers"]
 col = db["UserReqID"]
 
