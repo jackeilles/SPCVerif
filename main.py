@@ -133,4 +133,4 @@ async def verify(ctx, userid: discord.Option(str, "UserID", required=True)):  # 
 
 
 # Token
-bot.run("MTA0NDM2NzM0NTg2MDIxODkxMQ.GzrbwC.DlId6Y7QiBRPsBbpjvk4eGjZnp61ZTOIJzkc_M")
+bot.run("redacted")
